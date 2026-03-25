@@ -240,26 +240,15 @@ if(tabla) tabla.search(this.value).draw();
 // EXCEL
 function exportExcel(){
 
-if(!tabla) return;
+let data = tabla.rows({search:'applied'}).data().toArray();
+let headers = tabla.columns().header().toArray().map(x=>x.innerText);
 
-// 👇 Igual que tu SQLite (esto es la clave)
-let data = tabla.rows({ search: 'applied' }).data().toArray();
-let headers = tabla.columns().header().toArray().map(x => x.innerText);
-
-// 👉 limpiar fechas (igual que tu otro código)
-let exportData = data.map(r=>{
-    return r.map(c=>{
-        if(c instanceof Date) return formatearFecha(c);
-        return c;
-    });
-});
-
-// 👉 crear excel
-let ws = XLSX.utils.aoa_to_sheet([headers, ...exportData]);
+// construir datos
+let ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
 let wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
-// 🔥 ESTE ES EL QUE SÍ FUNCIONA SIEMPRE
+// 🔥 ESTA ES LA CLAVE (usar writeFile directamente)
 XLSX.writeFile(wb, "reporte.xlsx");
 
 }
