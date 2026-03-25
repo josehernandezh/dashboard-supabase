@@ -40,11 +40,10 @@ button{background:#2563eb;color:white;border:none;padding:10px 15px;border-radiu
 <input type="date" id="fin">
 
 <select id="deviceFilter">
-<option value="">Todos los equipos</option>
+<option value="">Todos</option>
 </select>
 
 <button onclick="filtrar()">Filtrar</button>
-<button onclick="resetFiltros()">Reset</button>
 <button onclick="exportExcel()">Excel</button>
 </div>
 
@@ -55,13 +54,13 @@ button{background:#2563eb;color:white;border:none;padding:10px 15px;border-radiu
 <script>
 
 const URL = "https://glieqeycqkuseykmvcim.supabase.co/rest/v1/registros";
-const API_KEY = "TU_API_KEY_AQUI";
+const API_KEY = "TU_API_KEY";
 
 let tabla;
 let dataGlobal = [];
-let filtrosActivos = false;
+let dataOriginal = []; // 👈 datos sin tocar (para fechas reales)
 
-// FORMATO FECHA
+// FORMATO MÉXICO
 function formatearFecha(fechaISO){
 let f = new Date(fechaISO);
 return f.toLocaleString("es-MX");
@@ -69,8 +68,6 @@ return f.toLocaleString("es-MX");
 
 // CARGAR DATOS
 async function cargar(){
-
-try{
 
 let todos = [];
 let desde = 0;
@@ -87,14 +84,16 @@ Authorization:"Bearer "+API_KEY
 
 let data = await res.json();
 
-if(!Array.isArray(data)) break;
-if(data.length === 0) break;
+if(!Array.isArray(data) || data.length === 0) break;
 
 todos = todos.concat(data);
 desde += limite;
 }
 
-// 👉 crear fecha formateada SIN romper original
+// guardar original
+dataOriginal = todos;
+
+// formatear solo para mostrar
 todos.forEach(x=>{
 if(x.fecha){
 x.fecha_mx = formatearFecha(x.fecha);
@@ -103,13 +102,9 @@ x.fecha_mx = formatearFecha(x.fecha);
 
 dataGlobal = todos;
 
+llenarFiltroEquipos();
 cargarTabla(todos);
-llenarFiltroEquipos(todos);
 actualizarDashboard(todos);
-
-}catch(e){
-console.error("Error:", e);
-}
 
 }
 
@@ -117,15 +112,13 @@ console.error("Error:", e);
 function cargarTabla(data){
 
 if(tabla) tabla.destroy();
+
 if(data.length === 0) return;
 
 let columnas = Object.keys(data[0]);
 
 tabla = $('#tabla').DataTable({
-data: data.map(x=>columnas.map(c=>{
-if(c === "fecha") return x.fecha_mx || x.fecha;
-return x[c];
-})),
+data: data.map(x=>columnas.map(c=>x[c])),
 columns: columnas.map(c=>({title:c})),
 pageLength:25
 });
@@ -133,24 +126,24 @@ pageLength:25
 }
 
 // FILTRO EQUIPOS
-function llenarFiltroEquipos(data){
+function llenarFiltroEquipos(){
 
 let select = document.getElementById("deviceFilter");
 
-let actual = select.value;
+let actual = select.value; // 👈 mantener selección
 
 select.innerHTML = '<option value="">Todos</option>';
 
-let devices = [...new Set(data.map(x=>x.device_id).filter(x=>x))];
+let devices = [...new Set(dataOriginal.map(x=>x.device_id).filter(x=>x))];
 
 devices.forEach(d=>{
 let opt = document.createElement("option");
 opt.value=d;
 opt.text=d;
+if(d === actual) opt.selected = true;
 select.appendChild(opt);
 });
 
-select.value = actual; // 🔥 mantener selección
 }
 
 // DASHBOARD
@@ -166,17 +159,16 @@ document.getElementById("suma").innerText = suma;
 // FILTRAR
 function filtrar(){
 
-filtrosActivos = true;
-
 let inicio = document.getElementById("inicio").value;
 let fin = document.getElementById("fin").value;
 let device = document.getElementById("deviceFilter").value;
 
-let filtrados = dataGlobal.filter(x=>{
+let filtrados = dataOriginal.filter(x=>{
 
 let fecha = new Date(x.fecha);
 
 if(device && x.device_id !== device) return false;
+
 if(inicio && fecha < new Date(inicio)) return false;
 if(fin && fecha > new Date(fin + "T23:59:59")) return false;
 
@@ -184,47 +176,52 @@ return true;
 
 });
 
+// volver a formatear
+filtrados = filtrados.map(x=>{
+return {...x, fecha_mx: formatearFecha(x.fecha)};
+});
+
+dataGlobal = filtrados;
+
 cargarTabla(filtrados);
 actualizarDashboard(filtrados);
 
 }
 
-// RESET
-function resetFiltros(){
-filtrosActivos = false;
-cargar();
-}
-
-// BUSQUEDA
+// BUSCAR
 document.getElementById("buscar").addEventListener("keyup",function(){
 if(tabla) tabla.search(this.value).draw();
 });
 
-// EXCEL
+// EXPORTAR EXCEL (100% FUNCIONAL)
 function exportExcel(){
 
-if(!tabla){
+if(!dataGlobal.length){
 alert("No hay datos");
 return;
 }
 
-let rows = tabla.rows({search:'applied'}).data().toArray();
-let headers = tabla.columns().header().toArray().map(x=>x.innerText);
+let columnas = Object.keys(dataGlobal[0]);
 
-let ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+let filas = dataGlobal.map(x => columnas.map(c => x[c]));
+
+let ws = XLSX.utils.aoa_to_sheet([columnas, ...filas]);
 let wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
-XLSX.writeFile(wb, "reporte.xlsx");
+// 👇 MÉTODO QUE SÍ FUNCIONA EN WEB / GITHUB / ANDROID
+let wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+let blob = new Blob([wbout], {type:"application/octet-stream"});
+
+let url = URL.createObjectURL(blob);
+let a = document.createElement("a");
+a.href = url;
+a.download = "reporte.xlsx";
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
 
 }
-
-// AUTO REFRESH INTELIGENTE
-setInterval(()=>{
-if(!filtrosActivos){
-cargar();
-}
-},10000);
 
 // INICIO
 cargar();
