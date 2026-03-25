@@ -255,7 +255,7 @@ let wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
 // 🔥 descarga directa
-XLSX.writeFile(wb, "reporte.xlsx");
+XLSX.writeFile(wb, "reporte.xlsx", {compression:true});
 
 }
 // AUTO REFRESH
