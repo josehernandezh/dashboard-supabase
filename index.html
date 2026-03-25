@@ -240,15 +240,21 @@ if(tabla) tabla.search(this.value).draw();
 // EXCEL
 function exportExcel(){
 
-let data = tabla.rows({search:'applied'}).data().toArray();
-let headers = tabla.columns().header().toArray().map(x=>x.innerText);
+if(!dataGlobal || dataGlobal.length === 0){
+alert("No hay datos");
+return;
+}
 
-// construir datos
-let ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+// 🔥 usar datos originales (NO DataTables)
+let columnas = Object.keys(dataGlobal[0]);
+
+let filas = dataGlobal.map(x => columnas.map(c => x[c]));
+
+let ws = XLSX.utils.aoa_to_sheet([columnas, ...filas]);
 let wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
-// 🔥 ESTA ES LA CLAVE (usar writeFile directamente)
+// 🔥 descarga directa
 XLSX.writeFile(wb, "reporte.xlsx");
 
 }
