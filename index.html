@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard PRO Supabase</title>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{
+font-family:Segoe UI;
+background:#f1f5f9;
+margin:0;
+}
+.header{
+background:#0f172a;
+color:white;
+padding:20px;
+font-size:22px;
+}
+.container{
+padding:25px;
+}
+.cards{
+display:flex;
+gap:20px;
+margin-bottom:20px;
+}
+.card{
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 10px 25px rgba(0,0,0,0.08);
+flex:1;
+}
+.card span{
+font-size:28px;
+font-weight:bold;
+}
+.controls{
+display:flex;
+gap:10px;
+margin-bottom:20px;
+flex-wrap:wrap;
+}
+input, select{
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+button{
+background:#2563eb;
+color:white;
+border:none;
+padding:10px 15px;
+border-radius:6px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Dashboard PRO (Supabase)</div>
+
+<div class="container">
+
+<div class="cards">
+<div class="card">
+Registros<br>
+<span id="total">0</span>
+</div>
+
+<div class="card">
+Cantidad Total<br>
+<span id="suma">0</span>
+</div>
+</div>
+
+<div class="controls">
+<input id="buscar" placeholder="Buscar...">
+<input type="date" id="inicio">
+<input type="date" id="fin">
+
+<select id="deviceFilter">
+<option value="">Todos los equipos</option>
+</select>
+
+<button onclick="filtrar()">Filtrar</button>
+<button onclick="exportExcel()">Excel</button>
+</div>
+
+<table id="tabla" class="display" style="width:100%"></table>
+
+</div>
+
+<script>
+
+const URL = "https://glieqeycqkuseykmvcim.supabase.co/rest/v1/registros";
+const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsaWVxZXljcWt1c2V5a212Y2ltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MzI4MjIsImV4cCI6MjA3NjMwODgyMn0.Ww-q6Iay68YHhuKJbg--FhsxjI_WkjghFFRaC2sgogU";
+
+let tabla;
+let dataGlobal = [];
+
+// FORMATO FECHA MÉXICO
+function formatearFecha(fechaISO){
+let f = new Date(fechaISO);
+return f.toLocaleString("es-MX");
+}
+
+// CARGAR TODOS LOS DATOS (SIN LÍMITE)
+async function cargar(){
+
+try{
+
+let todos = [];
+let desde = 0;
+let limite = 1000;
+
+while(true){
+
+let res = await fetch(`${URL}?select=*&offset=${desde}&limit=${limite}`, {
+headers:{
+apikey:API_KEY,
+Authorization:"Bearer "+API_KEY
+}
+});
+
+let data = await res.json();
+
+if(!Array.isArray(data)){
+console.error("Error Supabase:", data);
+break;
+}
+
+if(data.length === 0) break;
+
+todos = todos.concat(data);
+
+desde += limite;
+}
+
+// FORMATEAR FECHA
+todos.forEach(x=>{
+if(x.fecha){
+x.fecha = formatearFecha(x.fecha);
+}
+});
+
+dataGlobal = todos;
+
+cargarTabla(todos);
+llenarFiltroEquipos(todos);
+actualizarDashboard(todos);
+
+}catch(e){
+console.error("Error cargando:", e);
+}
+
+}
+
+// TABLA
+function cargarTabla(data){
+
+if(tabla) tabla.destroy();
+
+if(data.length === 0) return;
+
+let columnas = Object.keys(data[0]);
+
+tabla = $('#tabla').DataTable({
+data: data.map(x=>columnas.map(c=>x[c])),
+columns: columnas.map(c=>({title:c})),
+pageLength:25
+});
+
+}
+
+// FILTRO EQUIPOS
+function llenarFiltroEquipos(data){
+
+let select = document.getElementById("deviceFilter");
+select.innerHTML = '<option value="">Todos</option>';
+
+let devices = [...new Set(data.map(x=>x.device_id).filter(x=>x))];
+
+devices.forEach(d=>{
+let opt = document.createElement("option");
+opt.value=d;
+opt.text=d;
+select.appendChild(opt);
+});
+
+}
+
+// DASHBOARD
+function actualizarDashboard(data){
+
+document.getElementById("total").innerText = data.length;
+
+let suma = data.reduce((acc,x)=>acc + (parseFloat(x.cantidad)||0),0);
+document.getElementById("suma").innerText = suma;
+
+}
+
+// FILTRO
+function filtrar(){
+
+let inicio = document.getElementById("inicio").value;
+let fin = document.getElementById("fin").value;
+let device = document.getElementById("deviceFilter").value;
+
+let filtrados = dataGlobal.filter(x=>{
+
+let fechaOriginal = new Date(x.fecha);
+
+if(device && x.device_id !== device) return false;
+
+if(inicio && fechaOriginal < new Date(inicio)) return false;
+if(fin && fechaOriginal > new Date(fin)) return false;
+
+return true;
+
+});
+
+cargarTabla(filtrados);
+actualizarDashboard(filtrados);
+
+}
+
+// BUSQUEDA
+document.getElementById("buscar").addEventListener("keyup",function(){
+if(tabla) tabla.search(this.value).draw();
+});
+
+// EXCEL
+function exportExcel(){
+
+if(!tabla) return;
+
+// 👇 Igual que tu SQLite (esto es la clave)
+let data = tabla.rows({ search: 'applied' }).data().toArray();
+let headers = tabla.columns().header().toArray().map(x => x.innerText);
+
+// 👉 limpiar fechas (igual que tu otro código)
+let exportData = data.map(r=>{
+    return r.map(c=>{
+        if(c instanceof Date) return formatearFecha(c);
+        return c;
+    });
+});
+
+// 👉 crear excel
+let ws = XLSX.utils.aoa_to_sheet([headers, ...exportData]);
+let wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, "Datos");
+
+// 🔥 ESTE ES EL QUE SÍ FUNCIONA SIEMPRE
+XLSX.writeFile(wb, "reporte.xlsx");
+
+}
+// AUTO REFRESH
+setInterval(cargar, 10000);
+
+// INICIO
+cargar();
+
+</script>
+
+</body>
+</html>
