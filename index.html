@@ -224,35 +224,39 @@ function exportExcel() {
     }
 
     try {
-        // 1. Crear el libro y la hoja
-        const worksheet = XLSX.utils.json_to_sheet(dataGlobal);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Registros");
+        // 1. Convertir JSON a Hoja de Excel
+        const ws = XLSX.utils.json_to_sheet(dataGlobal);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Registros");
 
-        // 2. Generar los datos binarios del Excel
-        // Usamos 'array' para obtener un buffer compatible con el navegador
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        // 2. Generar binarios (USAR write en lugar de writeFile)
+        // El tipo 'array' es el más compatible con navegadores modernos
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
-        // 3. Crear un Blob con el tipo de contenido correcto para Excel
-        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        // 3. Crear el Blob con el MIME type oficial de Excel (.xlsx)
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-        // 4. Crear un enlace oculto para forzar la descarga
+        // 4. Crear link de descarga manual
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "reporte_supabase.xlsx";
+        a.download = "Reporte_Supabase_" + new Date().getTime() + ".xlsx";
+        
         document.body.appendChild(a);
         a.click();
         
-        // Limpieza
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        // Limpieza de memoria
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
 
     } catch (e) {
-        console.error("Error al exportar:", e);
-        alert("No se pudo generar el archivo. Revisa la consola (F12).");
+        console.error("Error detallado:", e);
+        alert("Error al generar el Excel: " + e.message);
     }
 }
+
 
 // INICIO
 cargar();
