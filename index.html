@@ -224,35 +224,36 @@ function exportExcel() {
     }
 
     try {
-        // 1. Convertir JSON a Hoja de Excel
-        const ws = XLSX.utils.json_to_sheet(dataGlobal);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Registros");
+        // 1. Crear la hoja desde el JSON
+        const worksheet = XLSX.utils.json_to_sheet(dataGlobal);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Registros");
 
-        // 2. Generar binarios (USAR write en lugar de writeFile)
-        // El tipo 'array' es el más compatible con navegadores modernos
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        // 2. GENERAR BINARIOS (Aquí estaba el error, usamos 'write' con minúscula)
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
 
-        // 3. Crear el Blob con el MIME type oficial de Excel (.xlsx)
-        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        // 3. Crear el Blob con el tipo MIME de Excel
+        const blob = new Blob([excelBuffer], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
 
-        // 4. Crear link de descarga manual
+        // 4. Crear link de descarga manual (Método infalible para navegadores)
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Reporte_Supabase_" + new Date().getTime() + ".xlsx";
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "reporte_supabase_" + new Date().getTime() + ".xlsx";
         
-        document.body.appendChild(a);
-        a.click();
+        document.body.appendChild(link);
+        link.click();
         
-        // Limpieza de memoria
+        // Limpiar
         setTimeout(() => {
-            document.body.removeChild(a);
+            document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
         }, 100);
 
     } catch (e) {
-        console.error("Error detallado:", e);
+        console.error("Error detallado al exportar:", e);
         alert("Error al generar el Excel: " + e.message);
     }
 }
