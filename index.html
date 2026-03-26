@@ -203,26 +203,24 @@ return;
 
 let columnas = Object.keys(dataGlobal[0]);
 
-let filas = dataGlobal.map(x => columnas.map(c => x[c]));
+// 🔥 limpiar datos (clave para que no falle)
+let filas = dataGlobal.map(x => 
+    columnas.map(c => {
+        let val = x[c];
+        if(val === null || val === undefined) return "";
+        return String(val);
+    })
+);
 
 let ws = XLSX.utils.aoa_to_sheet([columnas, ...filas]);
+
 let wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
-// 👇 MÉTODO QUE SÍ FUNCIONA EN WEB / GITHUB / ANDROID
-let wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-let blob = new Blob([wbout], {type:"application/octet-stream"});
-
-let url = URL.createObjectURL(blob);
-let a = document.createElement("a");
-a.href = url;
-a.download = "reporte.xlsx";
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
+// 🔥 ESTA ES LA DIFERENCIA CLAVE
+XLSX.writeFile(wb, "reporte.xlsx");
 
 }
-
 // INICIO
 cargar();
 
