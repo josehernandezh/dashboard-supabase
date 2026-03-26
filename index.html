@@ -217,45 +217,30 @@ if(tabla) tabla.search(this.value).draw();
 });
 
 // EXCEL (VERSIÓN ESTABLE)
-function exportExcel(){
+function exportExcel() {
+    if (!dataGlobal || dataGlobal.length === 0) {
+        alert("No hay datos para exportar. Verifica la carga de Supabase.");
+        return;
+    }
 
-if(!dataGlobal.length){
-    alert("No hay datos");
-    return;
-}
+    try {
+        // 1. Crear una hoja de trabajo (Worksheet) a partir de los datos actuales
+        // Usamos dataGlobal que es lo que está filtrado en pantalla
+        const worksheet = XLSX.utils.json_to_sheet(dataGlobal);
 
-// 🔥 columnas
-let columnas = Object.keys(dataGlobal[0]);
+        // 2. Crear un libro de trabajo (Workbook)
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Registros");
 
-// 🔥 crear CSV
-let csv = columnas.join(",") + "\n";
-
-dataGlobal.forEach(row => {
-    let fila = columnas.map(c => {
-        let val = row[c];
-
-        if(val === null || val === undefined) return "";
-
-        // 🔥 escapar comas y comillas
-        val = String(val).replace(/"/g, '""');
-
-        return `"${val}"`;
-    });
-
-    csv += fila.join(",") + "\n";
-});
-
-// 🔥 descargar
-let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-
-let link = document.createElement("a");
-link.href = URL.createObjectURL(blob);
-link.download = "reporte.csv";
-
-document.body.appendChild(link);
-link.click();
-document.body.removeChild(link);
-
+        // 3. Generar el archivo y disparar la descarga automática
+        // Esto es mucho más seguro que crear Blobs manualmente
+        XLSX.writeFile(workbook, "Reporte_Supabase_" + new Date().toISOString().slice(0,10) + ".xlsx");
+        
+        console.log("Exportación exitosa");
+    } catch (error) {
+        console.error("Error al exportar:", error);
+        alert("Error al generar el archivo Excel");
+    }
 }
 // INICIO
 cargar();
