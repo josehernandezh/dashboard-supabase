@@ -219,29 +219,41 @@ if(tabla) tabla.search(this.value).draw();
 // EXCEL (VERSIÓN ESTABLE)
 function exportExcel() {
     if (!dataGlobal || dataGlobal.length === 0) {
-        alert("No hay datos para exportar. Verifica la carga de Supabase.");
+        alert("No hay datos para exportar");
         return;
     }
 
     try {
-        // 1. Crear una hoja de trabajo (Worksheet) a partir de los datos actuales
-        // Usamos dataGlobal que es lo que está filtrado en pantalla
+        // 1. Crear el libro y la hoja
         const worksheet = XLSX.utils.json_to_sheet(dataGlobal);
-
-        // 2. Crear un libro de trabajo (Workbook)
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Registros");
 
-        // 3. Generar el archivo y disparar la descarga automática
-        // Esto es mucho más seguro que crear Blobs manualmente
-        XLSX.writeFile(workbook, "Reporte_Supabase_" + new Date().toISOString().slice(0,10) + ".xlsx");
+        // 2. Generar los datos binarios del Excel
+        // Usamos 'array' para obtener un buffer compatible con el navegador
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+        // 3. Crear un Blob con el tipo de contenido correcto para Excel
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        // 4. Crear un enlace oculto para forzar la descarga
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reporte_supabase.xlsx";
+        document.body.appendChild(a);
+        a.click();
         
-        console.log("Exportación exitosa");
-    } catch (error) {
-        console.error("Error al exportar:", error);
-        alert("Error al generar el archivo Excel");
+        // Limpieza
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+    } catch (e) {
+        console.error("Error al exportar:", e);
+        alert("No se pudo generar el archivo. Revisa la consola (F12).");
     }
 }
+
 // INICIO
 cargar();
 
