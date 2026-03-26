@@ -217,44 +217,39 @@ if(tabla) tabla.search(this.value).draw();
 });
 
 // EXCEL (VERSIÓN ESTABLE)
-function exportExcel() {
+// CAMBIAMOS EL NOMBRE PARA EVITAR CACHÉ
+function descargarExcelPRO() {
     if (!dataGlobal || dataGlobal.length === 0) {
-        alert("No hay datos para exportar");
+        alert("No hay datos");
         return;
     }
 
     try {
-        // 1. Crear la hoja desde el JSON
-        const worksheet = XLSX.utils.json_to_sheet(dataGlobal);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Registros");
+        // 1. Usamos la librería para generar solo los datos (NO el archivo)
+        const ws = XLSX.utils.json_to_sheet(dataGlobal);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
-        // 2. GENERAR BINARIOS (Aquí estaba el error, usamos 'write' con minúscula)
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        // 2. Generamos los bytes (USANDO write con 'array')
+        const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
-        // 3. Crear el Blob con el tipo MIME de Excel
-        const blob = new Blob([excelBuffer], { 
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-        });
-
-        // 4. Crear link de descarga manual (Método infalible para navegadores)
+        // 3. Creamos el archivo manualmente con un Blob
+        const blob = new Blob([buffer], { type: "application/octet-stream" });
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "reporte_supabase_" + new Date().getTime() + ".xlsx";
         
-        document.body.appendChild(link);
-        link.click();
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reporte_" + Date.now() + ".xlsx";
+        document.body.appendChild(a);
+        a.click();
         
-        // Limpiar
-        setTimeout(() => {
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        }, 100);
+        // Limpieza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
 
     } catch (e) {
-        console.error("Error detallado al exportar:", e);
-        alert("Error al generar el Excel: " + e.message);
+        console.error("Error:", e);
+        alert("Fallo al exportar: " + e.message);
     }
 }
 
